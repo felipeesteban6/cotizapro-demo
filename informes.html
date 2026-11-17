@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{color-scheme:light}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>Informes técnicos — CotizaPro (demo)</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: bandeja de informes a la izquierda + ficha de terreno a la derecha; apila en teléfono. Visor de videos en #v-<id>. */
+:root{
+  --bg:#F1F5F9; --surface:#FFFFFF; --ink:#0F2233; --muted:#5A6B7B; --line:#D5DEE7;
+  --accent:#1F6FB2; --accent-ink:#FFFFFF; --accent-soft:#E2EDF8; --band:#8EB4E3;
+  --ok:#1E7A4F; --ok-soft:#E1F3EA; --warn:#9A5800; --warn-soft:#FBEEDC; --danger:#B3261E;
+  --display:"Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body:Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0C151E; --surface:#13202C; --ink:#E4ECF3; --muted:#93A4B4; --line:#24384A;
+  --accent:#5AA7E6; --accent-ink:#06121D; --accent-soft:#15324B; --band:#2C557D;
+  --ok:#5CC896; --ok-soft:#123326; --warn:#E8A84E; --warn-soft:#3A2810; --danger:#F07C74; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0C151E; --surface:#13202C; --ink:#E4ECF3; --muted:#93A4B4; --line:#24384A;
+  --accent:#5AA7E6; --accent-ink:#06121D; --accent-soft:#15324B; --band:#2C557D;
+  --ok:#5CC896; --ok-soft:#123326; --warn:#E8A84E; --warn-soft:#3A2810; --danger:#F07C74; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.5}
+.wrap{max-width:1240px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);font-weight:700;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:28px;line-height:1.1}
+h2{font-size:18px}
+.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:18px}
+.top p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.eyebrow{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.btn{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;min-height:38px}
+.btn:hover{border-color:var(--accent)}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,.item:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--danger)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:860px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.tray{padding:12px;display:flex;flex-direction:column;gap:10px}
+.tray-head{display:flex;gap:8px}
+.tray-head input{flex:1;min-width:0}
+.list{display:flex;flex-direction:column;gap:4px;max-height:70vh;overflow:auto}
+@media (max-width:860px){.list{max-height:260px}}
+.item{display:grid;grid-template-columns:1fr auto;gap:2px 8px;padding:10px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:none;text-align:left;font:inherit;color:inherit;width:100%}
+.item:hover{background:var(--accent-soft)}
+.item.on{background:var(--accent-soft);border-color:var(--accent)}
+.item .f{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.item .c{font-weight:600;grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.item .m{font-size:12px;color:var(--muted);grid-column:1/-1;display:flex;gap:10px;font-variant-numeric:tabular-nums}
+.pill{font-size:11px;font-weight:600;padding:1px 8px;border-radius:99px;justify-self:end}
+.pill.borrador{background:var(--warn-soft);color:var(--warn)}
+.pill.emitido{background:var(--ok-soft);color:var(--ok)}
+.pill.ej{background:var(--accent-soft);color:var(--accent)}
+.pill.enviado{background:var(--accent);color:var(--accent-ink)}
+.seg{display:grid;grid-template-columns:1fr 1fr;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px}
+.seg button{font:inherit;font-weight:600;font-size:13px;border:0;background:none;color:var(--muted);border-radius:6px;padding:6px;cursor:pointer}
+.seg button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:2px 4px 2px 10px;font-weight:600}
+.chip button{border:0;background:none;color:inherit;cursor:pointer;font:inherit;padding:0 6px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}
+@media (max-width:640px){.cols{grid-template-columns:1fr}}
+.cols h3{font-size:14px;margin-bottom:8px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.tl{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;border-left:2px solid var(--line);padding-left:14px}
+.tl li{position:relative;font-size:13px}
+.tl li::before{content:"";position:absolute;left:-20px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+.tl li.enviado::before{background:var(--accent)}
+.tl time{display:block;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.hist{display:flex;flex-direction:column;gap:6px}
+.hist button{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;text-align:left;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;cursor:pointer}
+.hist button:hover{border-color:var(--accent)}
+.hist button.on{border-color:var(--accent);background:var(--accent-soft)}
+.hist .f{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.hist .d{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}
+.mail{border:1px solid var(--accent);background:var(--accent-soft)}
+.mail .sec-body{display:flex;flex-direction:column;gap:12px}
+.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.empty{padding:18px 10px;color:var(--muted);font-size:13px;text-align:center}
+.editor{display:flex;flex-direction:column;gap:16px;min-width:0}
+.sheet-head{padding:16px 18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+.folio{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.sec{overflow:hidden}
+.band{background:var(--band);color:var(--ink);font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;padding:6px 18px;display:flex;justify-content:space-between;gap:8px}
+.sec-body{padding:16px 18px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+@media (max-width:560px){.grid{grid-template-columns:1fr}}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field.full{grid-column:1/-1}
+label{font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.02em}
+input,textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%}
+textarea{resize:vertical;min-height:120px;line-height:1.55}
+.hint{font-size:12px;color:var(--muted)}
+.err{font-size:12px;color:var(--danger)}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);display:flex;flex-direction:column;gap:8px;align-items:center}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop strong{color:var(--ink)}
+.files{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px;margin-top:14px}
+.file{border:1px solid var(--line);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)}
+.thumb{aspect-ratio:4/3;max-width:100%;background:var(--line);position:relative;display:grid;place-items:center;overflow:hidden}
+.thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block}
+.tag{position:absolute;top:6px;left:6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--surface);color:var(--ink);border-radius:4px;padding:1px 6px}
+.file-body{padding:8px;display:flex;flex-direction:column;gap:6px}
+.file-body input{padding:6px 8px;font-size:13px}
+.file-row{display:flex;justify-content:space-between;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+.file-row .btn{min-height:30px;padding:4px 10px;font-size:12px}
+.uploading{font-size:12px;color:var(--muted);padding:8px 0}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.linkbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--accent-soft);border-radius:8px;padding:10px 12px;font-size:13px}
+.linkbox code{font-family:var(--mono);font-size:12px;word-break:break-all;flex:1;min-width:0;user-select:all}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-weight:500;max-width:calc(100% - 32px);z-index:20}
+.notice{padding:14px 18px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:13px}
+dialog{border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--ink);padding:0;width:min(640px,calc(100% - 32px))}
+dialog::backdrop{background:rgba(5,15,25,.5)}
+.dlg-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.dlg-body{padding:16px 18px;display:flex;flex-direction:column;gap:12px;max-height:70vh;overflow:auto}
+.dlg-foot{padding:12px 18px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:8px}
+.logo-prev{width:64px;height:64px;border:1px solid var(--line);border-radius:8px;object-fit:contain;background:#fff}
+/* visor */
+.visor{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+.visor-head{padding:18px;display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.visor-head img{width:56px;height:56px;object-fit:contain}
+.visor video{width:100%;max-width:100%;border-radius:8px;background:#000;display:block}
+.vid{display:flex;flex-direction:column;gap:6px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px}
+.kv dt{color:var(--muted);font-weight:600}
+.kv dd{margin:0}
+.gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.gal figure{margin:0}
+.gal img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px;display:block}
+.gal figcaption{font-size:12px;color:var(--muted);padding-top:4px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap" id="app">
+  <div id="vApp">
+    <header class="top">
+      <div>
+        <div class="eyebrow">Paso previo a la cotización</div>
+        <h1>Informes técnicos</h1>
+        <p>Registra la visita: datos del cliente, diagnóstico, fotos y videos. Genera el PDF con las imágenes; los videos quedan en un enlace con QR para reproducirlos.</p>
+      </div>
+      <div class="actions">
+        <button class="btn ghost" id="bAjustes" type="button">Datos de la empresa</button>
+        <button class="btn primary" id="bNuevo" type="button">+ Nuevo informe</button>
+      </div>
+    </header>
+    <div class="linkbox" style="margin-bottom:16px"><span style="flex:1;min-width:0"><strong>Demostración.</strong> Los informes, fotos y videos se guardan solo en este navegador. El envío por correo se simula.</span><a class="btn" href="./">Ir a cotizaciones</a><button class="btn" type="button" onclick="window.__resetDemo()">Restablecer demo</button></div>
+    <div id="noDb" class="notice" hidden>No se pudo conectar con el almacenamiento del artefacto. Inicia sesión en claude.ai y recarga para guardar informes.</div>
+    <div class="layout">
+      <aside class="panel tray">
+        <div class="seg" role="tablist"><button type="button" id="mInf" class="on">Informes</button><button type="button" id="mCli">Clientes</button></div>
+        <div class="tray-head"><input id="q" type="search" placeholder="Buscar cliente, RUT o folio" aria-label="Buscar informes"></div>
+        <div id="cliFiltro" hidden></div>
+        <div class="list" id="list"><div class="empty">Cargando informes…</div></div>
+      </aside>
+      <main class="editor" id="editor"></main>
+    </div>
+  </div>
+  <div id="vVisor" hidden></div>
+</div>
+
+<dialog id="dlg">
+  <form method="dialog" id="fAjustes">
+    <div class="dlg-head"><h2>Datos de la empresa</h2><button class="btn ghost" value="cancel" type="submit">Cerrar</button></div>
+    <div class="dlg-body">
+      <p class="hint" style="margin:0">Aparecen en el encabezado de cada PDF.</p>
+      <div style="display:flex;gap:12px;align-items:center">
+        <img id="logoPrev" class="logo-prev" alt="Logo" hidden>
+        <div class="field"><label for="aLogo">Logo (PNG o JPG)</label><input id="aLogo" type="file" accept="image/png,image/jpeg,image/webp"></div>
+      </div>
+      <div class="grid">
+        <div class="field full"><label for="aNombre">Razón social</label><input id="aNombre"></div>
+        <div class="field full"><label for="aGiro">Giro / servicios</label><input id="aGiro"></div>
+        <div class="field full"><label for="aDir">Dirección principal</label><input id="aDir"></div>
+        <div class="field"><label for="aRut">RUT</label><input id="aRut"></div>
+        <div class="field"><label for="aFono">Teléfono</label><input id="aFono"></div>
+        <div class="field full"><label for="aMail">Correo</label><input id="aMail" type="email"></div>
+        <div class="field full"><label for="aLink">Enlace de este artefacto (base para los links de video)</label><input id="aLink" placeholder="https://claude.ai/artifact/…"><span class="hint">Los links y QR del PDF apuntan aquí, más #v-&lt;informe&gt;.</span></div>
+      </div>
+    </div>
+    <div class="dlg-foot"><button class="btn primary" id="bGuardarAj" type="button">Guardar datos</button></div>
+  </form>
+</dialog>
+
+<dialog id="dlgMail" aria-labelledby="mTit">
+  <form method="dialog">
+    <div class="dlg-head"><h2 id="mTit">Enviar informe</h2><button class="btn ghost" value="cancel" type="submit" aria-label="Cerrar">Cerrar</button></div>
+    <div class="dlg-body">
+      <div class="field"><label for="mPara">Para</label><input id="mPara" type="email" multiple></div>
+      <div class="field"><label for="mAsunto">Asunto</label><input id="mAsunto"></div>
+      <div class="field"><label for="mCuerpo">Mensaje</label><textarea id="mCuerpo" rows="7"></textarea></div>
+      <div class="linkbox" id="mInfo"></div>
+      <span class="hint">Prototipo: el envío real se activa cuando se configure el correo de la empresa en el sistema.</span>
+    </div>
+    <div class="dlg-foot"><button class="btn" value="cancel" type="submit">Cancelar</button><button class="btn primary" id="bConfirmMail" type="button">Enviar informe</button></div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" hidden role="status"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+/* Demo estática (GitHub Pages): reemplaza el almacenamiento de claude.ai por el del navegador.
+   Informes -> localStorage · Fotos/videos -> IndexedDB · PDF -> descarga directa. */
+(function(){
+  var LS='cotizapro-informes-demo-v1';
+  var SEED={
+    'config/empresa':{nombre:'Aire JP Fresh SpA',giro:'Servicios de Climatización, Electricidad y Servicios Generales',direccion:'Los Militares 5620, of. 905, Las Condes, Santiago',rut:'77.212.003-6',fono:'+56 9 5320 5404',email:'airejpfresh@hotmail.com',logoId:'',enlaceVisor:''},
+    'informes/ejemplo0000':{id:'ejemplo0000',folio:'IT-0001',ejemplo:true,cliente:'Cliente Ejemplo SpA',rut:'76.086.428-5',direccion:'Av. Ejemplo 1234, Maipú',equipo:'Cassette 36.000 BTU (oficinas 2° piso)',correo:'mantencion@ejemplo.cl',contacto:'Encargado de mantención · +56 9 0000 0000',fecha:'2026-09-03',tecnico:'Técnico de terreno',comentario:'Equipo con baja presión de refrigerante y serpentín de la unidad exterior obstruido. Se detecta fuga menor en la unión flare de la línea de líquido.',recomendacion:'Reparar la fuga, hacer vacío y carga de refrigerante, y lavar el serpentín de la unidad exterior.',adjuntos:[],estado:'enviado',eventos:[{t:'2026-09-03T15:10:00.000Z',tipo:'creado',detalle:''},{t:'2026-09-03T15:40:00.000Z',tipo:'pdf',detalle:'1 página'},{t:'2026-09-03T15:45:00.000Z',tipo:'enviado',detalle:'Enviado a mantencion@ejemplo.cl'}],envios:[{t:'2026-09-03T15:45:00.000Z',para:'mantencion@ejemplo.cl',asunto:'Informe técnico IT-0001 de Aire JP Fresh SpA'}],creado:'2026-09-03T15:10:00.000Z',actualizado:'2026-09-03T15:45:00.000Z'},
+    'informes/ejemplo0001':{id:'ejemplo0001',folio:'IT-0002',ejemplo:true,cliente:'Cliente Ejemplo SpA',rut:'76.086.428-5',direccion:'Av. Ejemplo 1234, Maipú',equipo:'Split muro 24.000 BTU on-off (sala de control)',correo:'mantencion@ejemplo.cl',contacto:'Encargado de mantención · +56 9 0000 0000',fecha:'2026-11-17',tecnico:'Técnico de terreno',comentario:'El equipo de la sala de control presenta falla en la tarjeta de comunicación de la unidad interior. No hay repuesto disponible porque es un equipo on-off descontinuado.',recomendacion:'Reemplazar por equipo inverter con refrigerante R32 para mayor eficiencia energética y mejor control de temperatura.',adjuntos:[],estado:'borrador',eventos:[{t:'2026-11-17T12:00:00.000Z',tipo:'creado',detalle:''}],envios:[],creado:'2026-11-17T12:00:00.000Z',actualizado:'2026-11-17T12:00:00.000Z'}
+  };
+  var store=null;
+  try{store=JSON.parse(localStorage.getItem(LS))}catch(_){}
+  if(!store||typeof store!=='object')store=JSON.parse(JSON.stringify(SEED));
+  function save(){try{localStorage.setItem(LS,JSON.stringify(store))}catch(_){}}
+  var meta={fromCache:false,hasPendingWrites:false};
+  function clone(o){return o===undefined?undefined:JSON.parse(JSON.stringify(o))}
+  function snapDoc(p){var d=store[p];return{id:p.split('/').pop(),exists:!!d,data:function(){return clone(d)},metadata:meta}}
+  function snapCol(c){var n=c.split('/').length+1;var docs=Object.keys(store).filter(function(p){return p.indexOf(c+'/')===0&&p.split('/').length===n}).map(snapDoc);return{docs:docs,size:docs.length,empty:!docs.length,metadata:meta,docChanges:function(){return[]}}}
+  var listeners=[];
+  function emit(){listeners.forEach(function(l){setTimeout(function(){l.fn(l.col?snapCol(l.path):snapDoc(l.path))})})}
+  function changed(){save();emit()}
+  function listen(path,col,fn){var l={path:path,col:col,fn:fn};listeners.push(l);setTimeout(function(){fn(col?snapCol(path):snapDoc(path))});return function(){var i=listeners.indexOf(l);if(i>=0)listeners.splice(i,1)}}
+  function docRef(p){return{id:p.split('/').pop(),path:p,
+    get:function(){return Promise.resolve(snapDoc(p))},
+    set:function(d){store[p]=clone(d);changed();return Promise.resolve()},
+    update:function(d){store[p]=Object.assign({},store[p],clone(d));changed();return Promise.resolve()},
+    delete:function(){delete store[p];changed();return Promise.resolve()},
+    onSnapshot:function(fn){return listen(p,false,fn)}}}
+  var db={doc:docRef,collection:function(c){return{path:c,doc:function(id){return docRef(c+'/'+id)},onSnapshot:function(fn){return listen(c,true,fn)}}}};
+  window.addEventListener('storage',function(e){if(e.key===LS){try{store=JSON.parse(e.newValue)||{}}catch(_){}emit()}});
+
+  window.__blobs={};
+  var idb=new Promise(function(res,rej){var r=indexedDB.open('cotizapro-informes-demo',1);r.onupgradeneeded=function(){r.result.createObjectStore('f')};r.onsuccess=function(){res(r.result)};r.onerror=function(){rej(r.error)}});
+  function tx(mode,fn){return idb.then(function(d){return new Promise(function(res,rej){var t=d.transaction('f',mode);fn(t.objectStore('f'));t.oncomplete=function(){res()};t.onerror=function(){rej(t.error)}})})}
+  var loaded=idb.then(function(d){return new Promise(function(res){var r=d.transaction('f','readonly').objectStore('f').openCursor();r.onsuccess=function(){var c=r.result;if(c){window.__blobs[c.key]=URL.createObjectURL(c.value);c.continue()}else res()};r.onerror=function(){res()}})}).catch(function(){});
+  function nid(){var a='0123456789abcdef',s='',r=crypto.getRandomValues(new Uint8Array(32));for(var i=0;i<32;i++)s+=a[r[i]%16];return s}
+  var assets={
+    upload:function(blob,o){if(blob.size>20*1048576)return Promise.reject({code:'too_large'});var b=new Blob([blob],{type:(o&&o.type)||blob.type});var id=nid();
+      return tx('readwrite',function(s){s.put(b,id)}).then(function(){window.__blobs[id]=URL.createObjectURL(b);return{id:id,url:window.__blobs[id],sizeBytes:b.size,contentType:b.type}},function(){return Promise.reject({code:'quota_or_state'})})},
+    delete:function(id){return tx('readwrite',function(s){s.delete(id)}).then(function(){if(window.__blobs[id])URL.revokeObjectURL(window.__blobs[id]);delete window.__blobs[id];return{deleted:true}})},
+    list:function(){return Promise.resolve({assets:[],usage:{}})}
+  };
+  var downloads={save:function(r){var b=r.data instanceof Blob?r.data:new Blob([r.data]);var u=URL.createObjectURL(b);var a=document.createElement('a');a.href=u;a.download=r.filename;document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},5000);return Promise.resolve({status:'saved'})}};
+  window.claude={use:function(n){return loaded.then(function(){return n==='db'?db:n==='assets'?assets:n==='downloads'?downloads:null})}};
+  window.__resetDemo=function(){try{localStorage.removeItem(LS)}catch(_){}var r=indexedDB.deleteDatabase('cotizapro-informes-demo');r.onsuccess=r.onerror=r.onblocked=function(){location.hash='';location.reload()}};
+})();
+
+</script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const MAX=20*1024*1024;
+let db=null, assets=null, downloads=null;
+let informes=[], cfg={}, cur=null, dirty=false, filtro='', uploading=0, visorUnsub=null;
+let modo='inf', cliSel=null, mailFor=null;
+const ESTADOS={borrador:'Borrador',emitido:'Emitido',enviado:'Enviado'};
+const EVT={creado:'Informe creado',pdf:'PDF generado',emitido:'Marcado como emitido',borrador:'Vuelto a borrador',enviado:'Enviado por correo'};
+const evTexto=e=>e.tipo==='enviado'&&/^Enviado a /.test(e.detalle||'')?[e.detalle,'']:[EVT[e.tipo]||e.tipo,e.detalle||''];
+function claveCli(i){return limpiaRut(i.rut)||String(i.cliente||'').trim().toLowerCase()}
+function fHora(iso){const d=new Date(iso);if(isNaN(d))return'';return d.toLocaleDateString('es-CL',{day:'2-digit',month:'2-digit',year:'numeric'})+' '+d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})}
+function evento(tipo,detalle){cur.eventos=cur.eventos||[];cur.eventos.push({t:new Date().toISOString(),tipo,detalle:detalle||''})}
+function mailOk(s){return String(s||'').split(/[,;]\s*/).filter(Boolean).every(x=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x.trim()))&&String(s||'').trim()!==''}
+
+/* ---------- utilidades ---------- */
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toast._t);toast._t=setTimeout(()=>t.hidden=true,3200)}
+function rid(n=10){const a='abcdefghijkmnpqrstuvwxyz23456789';let s='';const r=crypto.getRandomValues(new Uint8Array(n));for(const x of r)s+=a[x%a.length];return s}
+function hoy(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function fFecha(iso){if(!iso)return'';const[y,m,d]=iso.split('-');return d+'-'+m+'-'+y}
+function fSize(b){return b>1048576?(b/1048576).toFixed(1)+' MB':Math.max(1,Math.round(b/1024))+' KB'}
+function limpiaRut(r){return String(r||'').replace(/[^0-9kK]/g,'').toUpperCase()}
+function fmtRut(r){const c=limpiaRut(r);if(c.length<2)return c;const cuerpo=c.slice(0,-1),dv=c.slice(-1);return cuerpo.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+'-'+dv}
+function rutOk(r){const c=limpiaRut(r);if(c.length<2)return false;const cuerpo=c.slice(0,-1),dv=c.slice(-1);let s=0,m=2;for(let i=cuerpo.length-1;i>=0;i--){s+=+cuerpo[i]*m;m=m===7?2:m+1}const e=11-(s%11);const d=e===11?'0':e===10?'K':String(e);return d===dv}
+function blobUrl(id){return (window.__blobs&&window.__blobs[id])||''}
+function visorLink(inf){const base=((cfg.enlaceVisor||'').trim()||location.href).replace(/#.*$/,'');return base?base+'#v-'+inf.id:''}
+function siguienteFolio(){let n=0;for(const i of informes){const m=/(\d+)$/.exec(i.folio||'');if(m)n=Math.max(n,+m[1])}return 'IT-'+String(n+1).padStart(4,'0')}
+
+/* ---------- capacidades ---------- */
+async function init(){
+  const [d,a,dl]=await Promise.all([claude.use('db'),claude.use('assets'),claude.use('downloads')]);
+  db=d;assets=a;downloads=dl;
+  route();
+  if(!db){$('#noDb').hidden=false;$('#list').innerHTML='<div class="empty">Sin conexión al almacenamiento.</div>';return}
+  const timer=setTimeout(()=>{if(!informes.length)$('#list').innerHTML='<div class="empty">No se pudo cargar todavía. Revisa tu conexión.</div>'},10000);
+  db.collection('informes').onSnapshot(s=>{
+    if(!s.metadata.fromCache)clearTimeout(timer);
+    informes=s.docs.map(x=>({...x.data(),id:x.id})).sort((a,b)=>(b.folio||'').localeCompare(a.folio||''));
+    if(cur&&!dirty){const f=informes.find(i=>i.id===cur.id);if(f)cur=structuredClone(f)}
+    if(!cur&&informes.length&&!location.hash.startsWith('#v-'))cur=structuredClone(informes[0]);
+    renderList();if(!dirty&&!uploading)renderEditor();
+  },e=>{clearTimeout(timer);$('#list').innerHTML='<div class="empty">Error al leer informes ('+esc(e.code)+').</div>'});
+  db.doc('config/empresa').onSnapshot(s=>{cfg=s.exists?{...s.data()}:{};},()=>{});
+}
+renderEditor();
+(function arrancar(n){if(window.claude&&window.claude.use)init();else if(n<30)setTimeout(()=>arrancar(n+1),100);else{$('#noDb').hidden=false;$('#list').innerHTML='<div class="empty">Sin conexión al almacenamiento.</div>'}})(0);
+
+/* ---------- rutas ---------- */
+function route(){
+  const h=location.hash;
+  if(h.startsWith('#v-')){$('#vApp').hidden=true;$('#vVisor').hidden=false;renderVisor(h.slice(3))}
+  else{$('#vApp').hidden=false;$('#vVisor').hidden=true;if(visorUnsub){visorUnsub();visorUnsub=null}}
+}
+window.addEventListener('hashchange',route);
+
+/* ---------- bandeja ---------- */
+function renderList(){
+  const q=filtro.toLowerCase();
+  $('#mInf').classList.toggle('on',modo==='inf');$('#mCli').classList.toggle('on',modo==='cli');
+  const cf=$('#cliFiltro');
+  if(modo==='inf'&&cliSel){const ej=informes.find(i=>claveCli(i)===cliSel);cf.hidden=false;cf.innerHTML=`<span class="chip">Cliente: ${esc(ej?ej.cliente:cliSel)}<button type="button" id="bSinCli" aria-label="Quitar filtro de cliente">×</button></span>`;$('#bSinCli').onclick=()=>{cliSel=null;renderList()}}else cf.hidden=true;
+  if(modo==='cli'){
+    const g=new Map();for(const i of informes){const k=claveCli(i);if(!k)continue;const e=g.get(k)||{k,cliente:i.cliente,rut:i.rut,n:0,env:0,ult:''};e.n++;if(i.estado==='enviado')e.env++;if((i.fecha||'')>e.ult){e.ult=i.fecha;e.cliente=i.cliente||e.cliente}g.set(k,e)}
+    const cl=[...g.values()].filter(e=>!q||[e.cliente,e.rut].join(' ').toLowerCase().includes(q)).sort((a,b)=>b.ult.localeCompare(a.ult));
+    $('#list').innerHTML=cl.length?cl.map(e=>`<button type="button" class="item" data-cli="${esc(e.k)}">
+      <span class="f">${esc(e.rut||'Sin RUT')}</span><span class="pill ej">${e.n} informe${e.n===1?'':'s'}</span>
+      <span class="c">${esc(e.cliente)}</span>
+      <span class="m"><span>Última visita ${esc(fFecha(e.ult))}</span><span>${e.env} enviado${e.env===1?'':'s'}</span></span></button>`).join(''):'<div class="empty">No hay clientes que coincidan.</div>';
+    return;
+  }
+  const rows=informes.filter(i=>(!cliSel||claveCli(i)===cliSel)&&(!q||[i.cliente,i.rut,i.folio,i.equipo].join(' ').toLowerCase().includes(q)));
+  if(!rows.length){$('#list').innerHTML='<div class="empty">'+(informes.length?'Sin resultados para la búsqueda.':'Aún no hay informes. Pulsa “Nuevo informe” para registrar la primera visita.')+'</div>';return}
+  $('#list').innerHTML=rows.map(i=>{
+    const nf=(i.adjuntos||[]).filter(a=>a.tipo==='imagen').length,nv=(i.adjuntos||[]).filter(a=>a.tipo==='video').length;
+    return `<button type="button" class="item${cur&&cur.id===i.id?' on':''}" data-id="${esc(i.id)}">
+      <span class="f">${esc(i.folio)}</span>
+      <span class="pill ${esc(i.estado||'borrador')}">${ESTADOS[i.estado]||'Borrador'}</span>
+      <span class="c">${esc(i.cliente||'Sin cliente')}</span>
+      <span class="m"><span>${esc(fFecha(i.fecha))}</span><span>${nf} foto${nf===1?'':'s'}</span><span>${nv} video${nv===1?'':'s'}</span></span>
+    </button>`}).join('');
+}
+$('#mInf').addEventListener('click',()=>{modo='inf';renderList()});
+$('#mCli').addEventListener('click',()=>{modo='cli';renderList()});
+function abrirInforme(id){const f=informes.find(i=>i.id===id);if(!f)return;cur=structuredClone(f);dirty=false;mailFor=null;renderList();renderEditor()}
+$('#list').addEventListener('click',e=>{
+  const c=e.target.closest('[data-cli]');if(c){cliSel=c.dataset.cli;modo='inf';filtro='';$('#q').value='';const pri=informes.find(i=>claveCli(i)===cliSel);renderList();if(pri&&!dirty)abrirInforme(pri.id);return}
+  const b=e.target.closest('.item');if(!b)return;
+  if(dirty&&!b.dataset.confirm){toast('Tienes cambios sin guardar. Pulsa de nuevo para descartarlos.');b.dataset.confirm=1;return}
+  abrirInforme(b.dataset.id);
+});
+$('#q').addEventListener('input',e=>{filtro=e.target.value;renderList()});
+$('#bNuevo').addEventListener('click',()=>{
+  if(!db){toast('Sin almacenamiento: inicia sesión para crear informes.');return}
+  const base=cliSel?informes.find(i=>claveCli(i)===cliSel):null;
+  cur={id:rid(),folio:siguienteFolio(),cliente:base?.cliente||'',rut:base?.rut||'',direccion:base?.direccion||'',equipo:'',correo:base?.correo||'',contacto:base?.contacto||'',fecha:hoy(),tecnico:'',comentario:'',recomendacion:'',adjuntos:[],estado:'borrador',eventos:[],envios:[],creado:new Date().toISOString(),nuevo:true};
+  dirty=true;mailFor=null;renderList();renderEditor();$(base?'#fEquipo':'#fCliente')?.focus();
+  if(base)toast('Datos de '+base.cliente+' copiados del último informe.');
+});
+
+/* ---------- editor ---------- */
+function renderEditor(){
+  const ed=$('#editor');
+  if(!cur){ed.innerHTML=`<div class="panel sec-body"><h2>Sin informe seleccionado</h2><p class="hint">Crea un informe nuevo o elige uno de la bandeja.</p></div>`;return}
+  const c=cur, ro=!db;
+  const imgs=(c.adjuntos||[]);
+  const link=visorLink(c), hayVid=imgs.some(a=>a.tipo==='video');
+  ed.innerHTML=`
+  <div class="panel sheet-head">
+    <div><div class="folio">${esc(c.folio)} · ${c.nuevo?'sin guardar':(ESTADOS[c.estado]||'Borrador').toLowerCase()}</div><h2>${esc(c.cliente||'Nuevo informe técnico')}</h2></div>
+    <div class="actions">
+      <button class="btn" type="button" id="bGuardar" ${ro?'disabled':''}>Guardar</button>
+      <button class="btn" type="button" id="bPdf" ${ro?'disabled':''}>Generar PDF</button>
+      <button class="btn primary" type="button" id="bEnviar" ${ro?'disabled':''}>${c.estado==='enviado'?'Reenviar al cliente':'Enviar al cliente'}</button>
+    </div>
+  </div>
+  ${c.ejemplo?'<div class="notice">Informe de ejemplo con datos ficticios. Puedes editarlo o borrarlo.</div>':''}
+  <section class="panel sec">
+    <div class="band"><span>Datos del cliente</span></div>
+    <div class="sec-body grid">
+      <div class="field full"><label for="fCliente">Cliente</label><input id="fCliente" data-k="cliente" value="${esc(c.cliente)}" placeholder="Razón social o nombre"></div>
+      <div class="field"><label for="fRut">RUT</label><input id="fRut" data-k="rut" value="${esc(c.rut)}" placeholder="76.123.456-7" inputmode="text"><span class="err" id="eRut" hidden>RUT no válido: revisa el dígito verificador.</span></div>
+      <div class="field"><label for="fFecha">Fecha de visita</label><input id="fFecha" type="date" data-k="fecha" value="${esc(c.fecha)}"></div>
+      <div class="field full"><label for="fDir">Dirección</label><input id="fDir" data-k="direccion" value="${esc(c.direccion)}" placeholder="Calle, número, comuna"></div>
+      <div class="field"><label for="fEquipo">Equipo</label><input id="fEquipo" data-k="equipo" value="${esc(c.equipo)}" placeholder="Ej.: Split muro 24.000 BTU on-off"></div>
+      <div class="field"><label for="fCorreo">Correo</label><input id="fCorreo" type="email" data-k="correo" value="${esc(c.correo)}" placeholder="contacto@cliente.cl"></div>
+      <div class="field"><label for="fContacto">Contacto / teléfono</label><input id="fContacto" data-k="contacto" value="${esc(c.contacto)}" placeholder="Nombre · +56 9 …"></div>
+      <div class="field"><label for="fTecnico">Técnico</label><input id="fTecnico" data-k="tecnico" value="${esc(c.tecnico)}" placeholder="Quién hizo la visita"></div>
+    </div>
+  </section>
+  <section class="panel sec">
+    <div class="band"><span>Informe técnico</span></div>
+    <div class="sec-body grid">
+      <div class="field full"><label for="fComent">Diagnóstico / comentario</label><textarea id="fComent" data-k="comentario" placeholder="Qué se encontró en terreno: falla, mediciones, estado del equipo…">${esc(c.comentario)}</textarea></div>
+      <div class="field full"><label for="fRecom">Recomendación</label><textarea id="fRecom" data-k="recomendacion" style="min-height:80px" placeholder="Trabajo sugerido. Sirve de base para la cotización.">${esc(c.recomendacion)}</textarea></div>
+    </div>
+  </section>
+  <section class="panel sec">
+    <div class="band"><span>Imágenes y videos</span><span>${imgs.filter(a=>a.tipo==='imagen').length} fotos · ${imgs.filter(a=>a.tipo==='video').length} videos</span></div>
+    <div class="sec-body">
+      ${assets?`<label class="drop" id="drop" for="fFiles">
+        <strong>Arrastra fotos o videos aquí, o toca para elegir</strong>
+        <span class="hint">Fotos JPG/PNG/WebP · Videos MP4 o WebM · hasta 20 MB cada uno</span>
+        <input id="fFiles" type="file" multiple accept="image/jpeg,image/png,image/webp,video/mp4,video/webm" hidden>
+      </label>`:`<div class="notice">Solo quien puede editar este artefacto puede subir archivos.</div>`}
+      <div class="uploading" id="upInfo" ${uploading?'':'hidden'}>Subiendo ${uploading} archivo(s)…</div>
+      <div class="files">${imgs.map(fileCard).join('')}</div>
+      ${hayVid?`<div style="margin-top:14px" class="linkbox">${link?`<span>Enlace de videos:</span><code id="vLink">${esc(link)}</code><button class="btn" type="button" id="bCopy">Copiar</button><a class="btn" href="${esc(link)}" target="_blank" rel="noopener">Abrir</a>`:`<span>Para crear el enlace de los videos, completa “Enlace de este artefacto” en Datos de la empresa.</span>`}</div>`:''}
+    </div>
+  </section>
+  ${c.nuevo?'':panelHistorial(c)}
+  <div class="actions">
+    <button class="btn" type="button" id="bEstado" ${ro||c.nuevo?'disabled':''}>${c.estado==='borrador'||!c.estado?'Marcar como emitido':'Volver a borrador'}</button>
+    <button class="btn danger ghost" type="button" id="bBorrar" ${ro||c.nuevo?'disabled':''}>Eliminar informe</button>
+  </div>`;
+  wireEditor();
+}
+function textoCorreo(c){
+  const saludo=(c.contacto||'').split('·')[0].trim()||c.cliente||'';
+  const asunto='Informe técnico '+c.folio+' de '+(cfg.nombre||'nuestra empresa');
+  const cuerpo='Estimado/a '+saludo+',\n\nLe compartimos el informe técnico de la visita del '+fFecha(c.fecha)+(c.equipo?' al equipo '+c.equipo:'')+'. Va adjunto en PDF con las fotos del trabajo'+((c.adjuntos||[]).some(a=>a.tipo==='video')?', y en el enlace puede ver los videos':'')+'.\n\nQuedamos atentos para enviarle la cotización correspondiente.\n\nSaludos,\n'+(cfg.nombre||'');
+  return {asunto,cuerpo:cuerpo.trim()};
+}
+function abrirEnvio(){
+  const c=cur,t=textoCorreo(c),nv=(c.adjuntos||[]).filter(a=>a.tipo==='video').length,nf=(c.adjuntos||[]).filter(a=>a.tipo==='imagen').length;
+  $('#mTit').textContent='Enviar '+c.folio;$('#mPara').value=c.correo||'';$('#mAsunto').value=t.asunto;$('#mCuerpo').value=t.cuerpo;
+  $('#mInfo').textContent='Tu cliente recibirá el informe en PDF adjunto ('+nf+' foto'+(nf===1?'':'s')+')'+(nv?' y un enlace para ver '+(nv===1?'el video':'los '+nv+' videos'):'')+'.';
+  $('#dlgMail').showModal();
+}
+$('#bConfirmMail').addEventListener('click',async()=>{
+  const para=$('#mPara').value.trim();if(!mailOk(para)){toast('Revisa los correos en “Para”.');$('#mPara').focus();return}
+  const b=$('#bConfirmMail');b.disabled=true;
+  cur.envios=cur.envios||[];cur.envios.push({t:new Date().toISOString(),para,asunto:$('#mAsunto').value,mensaje:$('#mCuerpo').value});
+  cur.estado='enviado';evento('enviado','Enviado a '+para);
+  const ok=await guardar(false);b.disabled=false;
+  if(ok){$('#dlgMail').close();toast('Informe enviado a '+para)}
+});
+function panelHistorial(c){
+  const ev=[...(c.eventos||[])].reverse();
+  const k=claveCli(c);const otros=k?informes.filter(i=>claveCli(i)===k).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')):[];
+  return `<section class="panel sec">
+    <div class="band"><span>Historial del cliente</span><span>${otros.length} informe${otros.length===1?'':'s'}</span></div>
+    <div class="sec-body cols">
+      <div><h3>Este informe</h3>${ev.length?`<ul class="tl">${ev.map(e=>{const[tt,dd]=evTexto(e);return `<li class="${esc(e.tipo)}"><time>${esc(fHora(e.t))}</time>${esc(tt)}${dd?` · <span class="hint">${esc(dd)}</span>`:''}</li>`}).join('')}</ul>`:'<p class="hint" style="margin:0">Sin movimientos todavía. Se registran al guardar, generar el PDF y enviarlo.</p>'}</div>
+      <div><h3>Informes de ${esc(c.cliente||'este cliente')}</h3>${otros.length?`<div class="hist">${otros.map(i=>`<button type="button" data-open="${esc(i.id)}" class="${i.id===c.id?'on':''}"><span class="f">${esc(i.folio)}</span><span class="d">${esc(fFecha(i.fecha))} · ${esc(i.equipo||'Sin equipo')}</span><span class="pill ${esc(i.estado||'borrador')}">${ESTADOS[i.estado]||'Borrador'}</span></button>`).join('')}</div>`:'<p class="hint" style="margin:0">Guarda el informe con el RUT del cliente para ver sus informes anteriores.</p>'}</div>
+    </div></section>`;
+}
+function fileCard(a){
+  const src=blobUrl(a.id);
+  const media=a.tipo==='video'?`<video src="${src}#t=0.5" preload="metadata" muted playsinline controls></video>`:`<img src="${src}" alt="${esc(a.descripcion||a.nombre)}" loading="lazy">`;
+  return `<div class="file" data-aid="${esc(a.id)}">
+    <div class="thumb">${media}<span class="tag">${a.tipo==='video'?'Video':'Foto'}</span></div>
+    <div class="file-body">
+      <input data-desc="${esc(a.id)}" value="${esc(a.descripcion||'')}" placeholder="Descripción para el PDF" aria-label="Descripción de ${esc(a.nombre)}">
+      <div class="file-row"><span>${esc(fSize(a.size||0))}</span>${assets?`<button class="btn ghost danger" type="button" data-del="${esc(a.id)}">Quitar</button>`:''}</div>
+    </div></div>`;
+}
+function wireEditor(){
+  const ed=$('#editor');
+  ed.querySelectorAll('[data-k]').forEach(el=>el.addEventListener('input',()=>{cur[el.dataset.k]=el.value;dirty=true;if(el.dataset.k==='cliente')ed.querySelector('h2').textContent=el.value||'Nuevo informe técnico'}));
+  const rut=$('#fRut');rut.addEventListener('blur',()=>{if(rut.value){rut.value=fmtRut(rut.value);cur.rut=rut.value;$('#eRut').hidden=rutOk(rut.value)}else $('#eRut').hidden=true});
+  ed.querySelectorAll('[data-desc]').forEach(el=>el.addEventListener('input',()=>{const a=cur.adjuntos.find(x=>x.id===el.dataset.desc);if(a){a.descripcion=el.value;dirty=true}}));
+  ed.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>quitar(b)));
+  $('#bGuardar')?.addEventListener('click',()=>guardar(true));
+  $('#bPdf')?.addEventListener('click',generarPdf);
+  $('#bCopy')?.addEventListener('click',()=>{const t=$('#vLink').textContent;navigator.clipboard.writeText(t).then(()=>toast('Enlace copiado'),()=>{const r=document.createRange();r.selectNodeContents($('#vLink'));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('Selecciona y copia el enlace')})});
+  $('#bEstado')?.addEventListener('click',async()=>{cur.estado=(cur.estado==='borrador'||!cur.estado)?'emitido':'borrador';evento(cur.estado);await guardar(false);toast(cur.estado==='emitido'?'Informe marcado como emitido':'Informe vuelto a borrador')});
+  ed.querySelectorAll('[data-open]').forEach(b=>b.addEventListener('click',()=>{if(b.dataset.open===cur.id)return;if(dirty){toast('Guarda los cambios antes de abrir otro informe.');return}abrirInforme(b.dataset.open)}));
+  $('#bEnviar')?.addEventListener('click',async()=>{
+    if(!mailOk(cur.correo)){toast('Falta un correo válido del cliente.');$('#fCorreo').focus();return}
+    if(!cur.cliente.trim()){toast('Falta el nombre del cliente.');$('#fCliente').focus();return}
+    if(dirty||cur.nuevo){if(!await guardar(false))return}
+    abrirEnvio();
+  });
+  const bb=$('#bBorrar');bb?.addEventListener('click',async()=>{
+    if(!bb.dataset.ok){bb.dataset.ok=1;bb.textContent='Confirmar: eliminar con sus archivos';return}
+    const id=cur.id,adj=cur.adjuntos||[];
+    try{await db.doc('informes/'+id).delete();for(const a of adj){try{await assets?.delete(a.id)}catch(_){}}cur=null;dirty=false;toast('Informe eliminado');renderList();renderEditor()}catch(e){toast('No se pudo eliminar ('+(e.code||'error')+')')}
+  });
+  const fi=$('#fFiles'),dz=$('#drop');
+  if(fi){fi.addEventListener('change',()=>{subir([...fi.files]);fi.value=''});
+    ['dragenter','dragover'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.add('over')}));
+    ['dragleave','drop'].forEach(t=>dz.addEventListener(t,e=>{e.preventDefault();dz.classList.remove('over')}));
+    dz.addEventListener('drop',e=>subir([...e.dataTransfer.files]));}
+}
+function datos(){const {nuevo,...d}=cur;d.actualizado=new Date().toISOString();delete d.ejemplo_tmp;return d}
+async function guardar(aviso){
+  if(!db||!cur)return false;
+  if(cur.nuevo&&!(cur.eventos||[]).some(e=>e.tipo==='creado'))evento('creado');
+  try{await db.doc('informes/'+cur.id).set(datos());delete cur.nuevo;dirty=false;if(aviso)toast('Informe '+cur.folio+' guardado');renderEditor();return true}
+  catch(e){toast(e.code==='invalid_argument'?'No tienes permiso para guardar o el informe es demasiado grande.':'No se pudo guardar ('+(e.code||'error')+'). Intenta de nuevo.');return false}
+}
+
+/* ---------- archivos ---------- */
+async function comprimir(file){
+  if(!/^image\/(jpeg|png|webp)$/.test(file.type)||file.size<1.5*1048576)return file;
+  try{const bmp=await createImageBitmap(file);const k=Math.min(1,2000/Math.max(bmp.width,bmp.height));
+    const cv=document.createElement('canvas');cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);cv.getContext('2d').drawImage(bmp,0,0,cv.width,cv.height);
+    const b=await new Promise(r=>cv.toBlob(r,'image/jpeg',.85));return b&&b.size<file.size?b:file}catch(_){return file}
+}
+async function subir(files){
+  if(!assets||!cur)return;
+  for(const f of files){
+    const esVid=f.type.startsWith('video/'),esImg=f.type.startsWith('image/');
+    if(!esVid&&!esImg){toast(f.name+': solo fotos o videos.');continue}
+    if(esVid&&!/^video\/(mp4|webm)$/.test(f.type)){toast(f.name+': formato no admitido. Graba o exporta el video en MP4.');continue}
+    uploading++;$('#upInfo').hidden=false;$('#upInfo').textContent='Subiendo '+uploading+' archivo(s)…';
+    try{
+      const blob=esImg?await comprimir(f):f;
+      if(blob.size>MAX){toast(f.name+' pesa '+fSize(blob.size)+'. El máximo es 20 MB: recorta el video o bájale la calidad.');continue}
+      const r=await assets.upload(blob,{type:blob.type||f.type});
+      cur.adjuntos=cur.adjuntos||[];cur.adjuntos.push({id:r.id,tipo:esVid?'video':'imagen',nombre:f.name,size:r.sizeBytes,descripcion:''});
+      dirty=true;
+    }catch(e){toast(f.name+': '+({too_large:'supera 20 MB',unsupported_type:'formato no admitido',quota_or_state:'sin espacio en el artefacto'}[e.code]||'no se pudo subir ('+(e.code||'error')+')'))}
+    finally{uploading--}
+  }
+  await guardar(false);
+}
+async function quitar(b){
+  if(!b.dataset.ok){b.dataset.ok=1;b.textContent='¿Quitar?';return}
+  const id=b.dataset.del;cur.adjuntos=cur.adjuntos.filter(a=>a.id!==id);
+  const ok=await guardar(false);if(ok){try{await assets.delete(id)}catch(_){}toast('Archivo quitado')}
+}
+
+/* ---------- ajustes ---------- */
+$('#bAjustes').addEventListener('click',()=>{
+  $('#aNombre').value=cfg.nombre||'';$('#aGiro').value=cfg.giro||'';$('#aDir').value=cfg.direccion||'';$('#aRut').value=cfg.rut||'';$('#aFono').value=cfg.fono||'';$('#aMail').value=cfg.email||'';$('#aLink').value=cfg.enlaceVisor||'';
+  const lp=$('#logoPrev');if(cfg.logoId){lp.src=blobUrl(cfg.logoId);lp.hidden=false}else lp.hidden=true;
+  $('#aLogo').disabled=!assets;$('#dlg').showModal();
+});
+let logoNuevo=null;
+$('#aLogo').addEventListener('change',async e=>{const f=e.target.files[0];if(!f||!assets)return;try{const r=await assets.upload(await comprimir(f),{type:f.type});logoNuevo=r.id;$('#logoPrev').src=r.url;$('#logoPrev').hidden=false}catch(err){toast('No se pudo subir el logo ('+(err.code||'error')+')')}});
+$('#bGuardarAj').addEventListener('click',async()=>{
+  if(!db)return;const n={nombre:$('#aNombre').value.trim(),giro:$('#aGiro').value.trim(),direccion:$('#aDir').value.trim(),rut:fmtRut($('#aRut').value)||'',fono:$('#aFono').value.trim(),email:$('#aMail').value.trim(),enlaceVisor:$('#aLink').value.trim(),logoId:logoNuevo||cfg.logoId||''};
+  try{await db.doc('config/empresa').set(n);cfg=n;logoNuevo=null;$('#dlg').close();toast('Datos de la empresa guardados');renderEditor()}catch(e){toast('No se pudo guardar ('+(e.code||'error')+')')}
+});
+
+/* ---------- PDF ---------- */
+async function cargarImagen(id,maxPx=1400){
+  const res=await fetch(blobUrl(id));if(!res.ok)throw new Error('404');const b=await res.blob();
+  const bmp=await createImageBitmap(b);const k=Math.min(1,maxPx/Math.max(bmp.width,bmp.height));
+  const cv=document.createElement('canvas');cv.width=Math.round(bmp.width*k);cv.height=Math.round(bmp.height*k);
+  const g=cv.getContext('2d');g.fillStyle='#fff';g.fillRect(0,0,cv.width,cv.height);g.drawImage(bmp,0,0,cv.width,cv.height);
+  return {data:cv.toDataURL('image/jpeg',.82),w:cv.width,h:cv.height};
+}
+function fotograma(id){
+  return new Promise(res=>{
+    const v=document.createElement('video');v.muted=true;v.playsInline=true;v.preload='auto';v.crossOrigin='anonymous';
+    const fin=r=>{clearTimeout(t);v.removeAttribute('src');v.load();res(r)};const t=setTimeout(()=>fin(null),7000);
+    v.addEventListener('loadedmetadata',()=>{v.currentTime=Math.min(1,(v.duration||2)/3)});
+    v.addEventListener('seeked',()=>{try{const k=Math.min(1,640/v.videoWidth);const cv=document.createElement('canvas');cv.width=v.videoWidth*k;cv.height=v.videoHeight*k;cv.getContext('2d').drawImage(v,0,0,cv.width,cv.height);fin({data:cv.toDataURL('image/jpeg',.75),w:cv.width,h:cv.height,dur:v.duration})}catch(_){fin(null)}});
+    v.addEventListener('error',()=>fin(null));v.src=blobUrl(id);
+  });
+}
+function qrPdf(doc,text,x,y,size){
+  const q=qrcode(0,'M');q.addData(text);q.make();const n=q.getModuleCount(),c=size/n;
+  doc.setFillColor(255,255,255);doc.rect(x-1,y-1,size+2,size+2,'F');doc.setFillColor(15,34,51);
+  for(let r=0;r<n;r++)for(let k=0;k<n;k++)if(q.isDark(r,k))doc.rect(x+k*c,y+r*c,c+.02,c+.02,'F');
+}
+async function generarPdf(){
+  if(!cur)return false;
+  if(!cur.cliente.trim()){toast('Falta el nombre del cliente.');$('#fCliente').focus();return false}
+  if(cur.rut&&!rutOk(cur.rut)){toast('Revisa el RUT del cliente antes de generar el PDF.');$('#fRut').focus();return false}
+  const b=$('#bPdf');b.disabled=true;b.textContent='Generando…';
+  try{
+    if(dirty||cur.nuevo){if(!await guardar(false))return false}
+    const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4'});
+    const W=210,H=297,M=15,CW=W-2*M,AZ=[142,180,227],TX=[15,34,51],BORDE=[47,84,150];
+    const c=cur;let y=M;
+    // encabezado
+    let tx=M;
+    if(cfg.logoId){try{const L=await cargarImagen(cfg.logoId,500);const s=Math.min(30/L.w,26/L.h);doc.addImage(L.data,'JPEG',M,y,L.w*s,L.h*s);tx=M+L.w*s+6}catch(_){}}
+    doc.setTextColor(79,129,189);doc.setFont('helvetica','bold');doc.setFontSize(13);doc.text(cfg.nombre||'Datos de la empresa sin configurar',tx,y+6);
+    doc.setTextColor(...TX);doc.setFontSize(8.5);let hy=y+11;
+    if(cfg.giro){doc.setFont('helvetica','bold');doc.text(cfg.giro,tx,hy);hy+=4}
+    if(cfg.direccion){doc.setFont('helvetica','bold');doc.text('Dirección principal: ',tx,hy);doc.setFont('helvetica','normal');doc.text(cfg.direccion,tx+doc.getTextWidth('Dirección principal: '),hy);hy+=4}
+    const lrf=[cfg.rut&&['Rut: ',cfg.rut],cfg.fono&&['Fono: ',cfg.fono]].filter(Boolean);let lx=tx;
+    for(const[k,v]of lrf){doc.setFont('helvetica','bold');doc.text(k,lx,hy);lx+=doc.getTextWidth(k);doc.setFont('helvetica','normal');doc.text(v,lx,hy);lx+=doc.getTextWidth(v)+4}if(lrf.length)hy+=4;
+    if(cfg.email){doc.setFont('helvetica','bold');doc.text('Email: ',tx,hy);doc.setFont('helvetica','normal');doc.text(cfg.email,tx+doc.getTextWidth('Email: '),hy);hy+=4}
+    doc.setFont('helvetica','bold');doc.setFontSize(9);doc.setTextColor(...TX);doc.text('N° '+c.folio,W-M,y+6,{align:'right'});
+    y=Math.max(y+30,hy+3);
+    // datos del cliente
+    const filas=[['Cliente:',c.cliente],['RUT:',c.rut],['Dirección:',c.direccion],['Equipo:',c.equipo],['Correo:',c.correo],['Contacto:',c.contacto],['Fecha:',fFecha(c.fecha)],['Técnico:',c.tecnico]].filter((f,i)=>i<5||i===6||f[1]);
+    const rh=5.2,bh=filas.length*rh+1.5;
+    doc.setFillColor(...AZ);doc.rect(M,y,24,bh,'F');doc.setDrawColor(...TX);doc.setLineWidth(.35);doc.roundedRect(M,y,CW,bh,1.5,1.5,'S');
+    doc.setFontSize(8.5);filas.forEach((f,i)=>{const yy=y+4.2+i*rh;doc.setFont('helvetica','bold');doc.text(f[0],M+1.5,yy);doc.text(doc.splitTextToSize(String(f[1]||''),CW-30)[0]||'',M+27,yy)});
+    y+=bh+6;
+    const barra=(t)=>{doc.setFillColor(...AZ);doc.setDrawColor(...BORDE);doc.setLineWidth(.5);doc.rect(M,y,CW,5,'FD');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(...TX);doc.text(t,W/2,y+3.6,{align:'center'});y+=5};
+    const nuevaPag=()=>{doc.addPage();y=M};
+    // informe técnico
+    barra('INFORME TÉCNICO');
+    doc.setFont('helvetica','normal');doc.setFontSize(9);
+    const lineas=[];const add=(txt,bold)=>{for(const l of doc.splitTextToSize(txt,CW-4))lineas.push([l,bold])};
+    if(c.comentario.trim())add(c.comentario.trim(),false);
+    if(c.recomendacion.trim()){if(lineas.length)lineas.push(['',false]);add('RECOMENDACIÓN',true);add(c.recomendacion.trim(),false)}
+    if(!lineas.length)add('Sin comentarios.',false);
+    let i0=0;const lh=4.3;
+    while(i0<lineas.length){
+      const cabe=Math.max(1,Math.floor((H-M-12-y-4)/lh));const chunk=lineas.slice(i0,i0+cabe);
+      const hBox=Math.max(i0===0?50:0,chunk.length*lh+5);
+      doc.setDrawColor(...BORDE);doc.setLineWidth(.5);doc.rect(M,y,CW,hBox);
+      chunk.forEach((l,j)=>{doc.setFont('helvetica',l[1]?'bold':'normal');doc.text(l[0],M+2,y+5+j*lh)});
+      y+=hBox+6;i0+=chunk.length;if(i0<lineas.length){nuevaPag();barra('INFORME TÉCNICO (CONT.)')}
+    }
+    // imágenes
+    const fotos=(c.adjuntos||[]).filter(a=>a.tipo==='imagen');
+    if(fotos.length){
+      const cellW=(CW-6)/2,imgH=62,cellH=imgH+10;
+      if(y+5+cellH>H-M-10)nuevaPag();barra('IMÁGENES TRABAJO');y+=3;
+      for(let k=0;k<fotos.length;k+=2){
+        if(y+cellH>H-M-10){nuevaPag();barra('IMÁGENES TRABAJO (CONT.)');y+=3}
+        for(let j=0;j<2&&k+j<fotos.length;j++){
+          const a=fotos[k+j],x=M+j*(cellW+6);
+          doc.setDrawColor(200,210,222);doc.setLineWidth(.2);doc.rect(x,y,cellW,imgH);
+          try{const im=await cargarImagen(a.id);const s=Math.min(cellW/im.w,imgH/im.h);const w=im.w*s,h=im.h*s;doc.addImage(im.data,'JPEG',x+(cellW-w)/2,y+(imgH-h)/2,w,h)}
+          catch(_){doc.setFontSize(8);doc.text('Imagen no disponible',x+cellW/2,y+imgH/2,{align:'center'})}
+          doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(...TX);
+          doc.text(doc.splitTextToSize(a.descripcion||('Foto '+(k+j+1)),cellW)[0],x,y+imgH+4.5);
+        }
+        y+=cellH;
+      }
+      y+=2;
+    }
+    // videos
+    const vids=(c.adjuntos||[]).filter(a=>a.tipo==='video');
+    const link=visorLink(c);
+    if(vids.length){
+      const rowH=30;
+      if(y+5+rowH+10>H-M-10)nuevaPag();barra('VIDEOS');y+=3;
+      if(link){
+        doc.setFontSize(8.5);doc.setFont('helvetica','normal');
+        doc.text('Escanea el código o abre el enlace para reproducir los videos de esta visita:',M,y+3);
+        doc.setTextColor(31,111,178);doc.textWithLink(doc.splitTextToSize(link,CW-34)[0],M,y+8,{url:link});doc.setTextColor(...TX);
+        qrPdf(doc,link,W-M-26,y,26);y+=30;
+      }else{doc.setFontSize(8.5);doc.text('Configura el enlace del artefacto para incluir el link de los videos.',M,y+3);y+=8}
+      for(let k=0;k<vids.length;k++){
+        const a=vids[k];if(y+rowH>H-M-10){nuevaPag();barra('VIDEOS (CONT.)');y+=3}
+        const fr=await fotograma(a.id);const tw=44,th=24.75;
+        doc.setFillColor(20,30,40);doc.rect(M,y,tw,th,'F');
+        if(fr){const s=Math.min(tw/fr.w,th/fr.h);doc.addImage(fr.data,'JPEG',M+(tw-fr.w*s)/2,y+(th-fr.h*s)/2,fr.w*s,fr.h*s)}
+        doc.setFillColor(255,255,255);doc.circle(M+tw/2,y+th/2,4.5,'F');doc.setFillColor(31,111,178);doc.triangle(M+tw/2-1.5,y+th/2-2.6,M+tw/2-1.5,y+th/2+2.6,M+tw/2+2.8,y+th/2,'F');
+        doc.setFont('helvetica','bold');doc.setFontSize(9);doc.text(a.descripcion||('Video '+(k+1)),M+tw+5,y+6);
+        doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text((fr&&fr.dur?Math.round(fr.dur)+' s · ':'')+fSize(a.size||0),M+tw+5,y+11);
+        if(link){doc.setTextColor(31,111,178);doc.textWithLink('Reproducir video',M+tw+5,y+16,{url:link+'-'+(k+1)});doc.setTextColor(...TX)}
+        y+=rowH;
+      }
+    }
+    // pie
+    const n=doc.getNumberOfPages();
+    for(let p=1;p<=n;p++){doc.setPage(p);doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.setTextColor(110,125,140);doc.text('Informe técnico '+c.folio+' · '+c.cliente,M,H-8);doc.text('Página '+p+' de '+n,W-M,H-8,{align:'right'})}
+    const blob=doc.output('blob');
+    const nombre='Informe tecnico '+c.folio+' - '+(c.cliente||'cliente').replace(/[\\/:*?"<>|]/g,'').slice(0,60)+'.pdf';
+    evento('pdf',n+' página'+(n===1?'':'s'));await guardar(false);
+    if(!downloads){toast('La descarga no está disponible en esta vista.');return true}
+    try{await downloads.save({filename:nombre,data:blob});toast('PDF listo: '+nombre)}
+    catch(e){toast(e.code==='declined'?'Descarga cancelada.':'No se pudo descargar ('+(e.code||'error')+')')}
+    return true;
+  }catch(e){console.error(e);toast('No se pudo generar el PDF. Revisa que las imágenes se vean en pantalla e intenta de nuevo.');return false}
+  finally{const bb=$('#bPdf');if(bb){bb.disabled=false;bb.textContent='Generar PDF'}}
+}
+
+/* ---------- visor de videos (#v-<id>[-n]) ---------- */
+function renderVisor(raw){
+  const box=$('#vVisor');const m=/^([a-z0-9]+)(?:-(\d+))?$/.exec(raw)||[];const id=m[1],foco=m[2]?+m[2]:0;
+  box.innerHTML='<div class="visor"><div class="panel sec-body">Cargando informe…</div></div>';
+  if(!db){box.innerHTML='<div class="visor"><div class="notice">Para ver los videos, abre este enlace con una sesión iniciada en claude.ai.</div></div>';return}
+  if(visorUnsub)visorUnsub();
+  const t=setTimeout(()=>{box.querySelector('.sec-body')&&(box.querySelector('.sec-body').textContent='No se pudo cargar el informe. Revisa tu conexión o pide un enlace nuevo.')},10000);
+  visorUnsub=db.doc('informes/'+id).onSnapshot(s=>{
+    clearTimeout(t);
+    if(!s.exists){box.innerHTML='<div class="visor"><div class="notice">Este informe no existe o no tienes acceso a él.</div></div>';return}
+    const c=s.data();const vids=(c.adjuntos||[]).filter(a=>a.tipo==='video'),fotos=(c.adjuntos||[]).filter(a=>a.tipo==='imagen');
+    box.innerHTML=`<div class="visor">
+      <div class="panel visor-head">${cfg.logoId?`<img src="${blobUrl(cfg.logoId)}" alt="">`:''}
+        <div style="min-width:0"><div class="eyebrow">${esc(cfg.nombre||'Informe técnico')}</div><h1>Videos de la visita técnica</h1><div class="folio">${esc(c.folio)}</div></div></div>
+      <div class="panel sec-body"><dl class="kv"><dt>Cliente</dt><dd>${esc(c.cliente)}</dd><dt>Dirección</dt><dd>${esc(c.direccion)}</dd><dt>Equipo</dt><dd>${esc(c.equipo)}</dd><dt>Fecha</dt><dd>${esc(fFecha(c.fecha))}</dd></dl>
+        ${c.comentario?`<p style="margin:12px 0 0;white-space:pre-wrap">${esc(c.comentario)}</p>`:''}</div>
+      ${vids.length?vids.map((v,i)=>`<section class="panel sec" id="vid-${i+1}"><div class="band"><span>${esc(v.descripcion||'Video '+(i+1))}</span></div><div class="sec-body vid">${blobUrl(v.id)?`<video src="${blobUrl(v.id)}" controls playsinline preload="metadata"></video>`:`<div class="notice">En esta demo los videos quedan guardados solo en el navegador donde se subieron. En el sistema real se verán desde cualquier dispositivo.</div>`}</div></section>`).join(''):'<div class="notice">Este informe no tiene videos.</div>'}
+      ${fotos.length?`<section class="panel sec"><div class="band"><span>Imágenes trabajo</span></div><div class="sec-body gal">${fotos.map(f=>`<figure><img src="${blobUrl(f.id)}" alt="${esc(f.descripcion||'Foto')}" loading="lazy"><figcaption>${esc(f.descripcion||'')}</figcaption></figure>`).join('')}</div></section>`:''}
+    </div>`;
+    if(foco){const el=document.getElementById('vid-'+foco);el&&el.scrollIntoView()}
+  },()=>{clearTimeout(t);box.innerHTML='<div class="visor"><div class="notice">No se pudo cargar el informe.</div></div>'});
+}
+})();
+</script>
+
+</body>
+</html>
